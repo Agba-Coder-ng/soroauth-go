@@ -26,6 +26,11 @@
       "floor": 86.4,
       "reason": "the exported-doc-comment gate: a bug here silently stops enforcing documentation"
     },
+    "github.com/soroauth/soroauth-go/internal/decodepolicy": {
+      "measured": 83.9,
+      "floor": 83.9,
+      "reason": "the bounded-decoder gate: a bug here silently stops enforcing the input bound the newest code most needs"
+    },
     "github.com/soroauth/soroauth-go/internal/xdrcopy": {
       "measured": 94.12,
       "floor": 94.1,

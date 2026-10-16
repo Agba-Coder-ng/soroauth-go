@@ -367,8 +367,11 @@ func recordedAuthEntries(sim rpc.SimulateTransactionResponse) ([]xdr.SorobanAuth
 	encodedEntries := *sim.Results[0].AuthXDR
 	entries := make([]xdr.SorobanAuthorizationEntry, 0, len(encodedEntries))
 	for i, encoded := range encodedEntries {
-		var entry xdr.SorobanAuthorizationEntry
-		if err := xdr.SafeUnmarshalBase64(encoded, &entry); err != nil {
+		// Recorded entries come off the wire, so they go through the
+		// library's bounded decoder rather than the SDK's default, which
+		// cannot refuse an input for being too long.
+		entry, err := soroauth.DecodeAuthorizationEntry(encoded)
+		if err != nil {
 			return nil, fmt.Errorf("decoding recorded entry %d: %w", i, err)
 		}
 		entries = append(entries, entry)
