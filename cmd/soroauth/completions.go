@@ -101,6 +101,19 @@ var commandSpecs = []commandSpec{
 		},
 	},
 	{
+		Name:        "submit",
+		Description: "enforce, sign, send and poll a transaction",
+		Flags: []flagSpec{
+			{Name: "entry", Description: "the signed transaction envelope, as base64 XDR", TakesValue: true},
+			{Name: "network", Description: "testnet, futurenet, public, or a literal network passphrase", TakesValue: true},
+			{Name: "secret-env", Description: "name of the environment variable holding the source account's seed", TakesValue: true},
+			{Name: "rpc-url", Description: "RPC endpoint to submit to (default $SOROAUTH_RPC_URL)", TakesValue: true},
+			{Name: "allow-unsigned", Description: "submit even though an address entry is unsigned (the host will refuse it)", TakesValue: false},
+			{Name: "timeout", Description: "how long to wait for the enforcing pass, the send and the poll", TakesValue: true},
+			{Name: "json", Description: "output as JSON", TakesValue: false},
+		},
+	},
+	{
 		Name:        "delegates",
 		Description: "wrap an entry in a delegated-signer credential",
 		Flags: []flagSpec{

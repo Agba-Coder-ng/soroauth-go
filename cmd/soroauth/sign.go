@@ -230,6 +230,25 @@ func resolveSigner(getenv func(string) string, secretEnv, assertion string) (sor
 		return nil, newErrorf(ExitUsageError, "passkey authentication is not yet supported")
 	}
 
+	full, err := resolveSeedKeypair(getenv, secretEnv)
+	if err != nil {
+		return nil, err
+	}
+	return soroauth.NewEd25519Signer(full), nil
+}
+
+// resolveSeedKeypair reads the seed named by secretEnv out of the environment
+// and parses it, refusing anything that is not a secret seed.
+//
+// It is separate from resolveSigner because the submit subcommand needs the
+// keypair itself — it signs the transaction envelope, which is a keypair's job
+// and not a Signer's — and because keeping the three refusals in one place is
+// what makes them say the same thing whichever subcommand hit them: an unset
+// variable, a value that is not a Stellar key, and a public key offered where
+// a secret seed belongs are three different mistakes with three different
+// fixes, and the last one is the one a caller gets wrong by pasting the wrong
+// half of a keypair.
+func resolveSeedKeypair(getenv func(string) string, secretEnv string) (*keypair.Full, error) {
 	seed := getenv(secretEnv)
 	if seed == "" {
 		return nil, newErrorf(ExitUsageError, "environment variable %s is empty or unset", secretEnv)
@@ -243,7 +262,7 @@ func resolveSigner(getenv func(string) string, secretEnv, assertion string) (sor
 	if !ok {
 		return nil, newErrorf(ExitUsageError, "the value of %s is a public key; a secret seed (S…) is required", secretEnv)
 	}
-	return soroauth.NewEd25519Signer(full), nil
+	return full, nil
 }
 
 // runSignBatch signs every input in a batch file, or none of them.
