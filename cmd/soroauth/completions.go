@@ -90,6 +90,17 @@ var commandSpecs = []commandSpec{
 		},
 	},
 	{
+		Name:        "simulate",
+		Description: "run the record pass and print what the host recorded",
+		Flags: []flagSpec{
+			{Name: "entry", Description: "the transaction envelope to simulate, as base64 XDR", TakesValue: true},
+			{Name: "rpc-url", Description: "RPC endpoint to simulate against (default $SOROAUTH_RPC_URL)", TakesValue: true},
+			{Name: "use-upgraded-auth", Description: "ask the host to record the address-bound V2 arm (best-effort)", TakesValue: false},
+			{Name: "timeout", Description: "how long to wait for the simulation", TakesValue: true},
+			{Name: "json", Description: "output as JSON", TakesValue: false},
+		},
+	},
+	{
 		Name:        "delegates",
 		Description: "wrap an entry in a delegated-signer credential",
 		Flags: []flagSpec{

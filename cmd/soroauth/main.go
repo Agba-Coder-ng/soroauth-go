@@ -73,6 +73,7 @@ usage:
 commands:
   payload        print the signing preimage and payload hash for an entry
   sign           sign an entry with a seed read from an environment variable
+  simulate       run the record pass and print what the host recorded
   delegates      wrap an entry in a delegated-signer credential
   inspect        print an entry's structure as JSON
   verify         check an entry's signatures without submitting it
@@ -140,6 +141,8 @@ func runWithStdin(args []string, stdout, stderr io.Writer, getenv func(string) s
 		return runPayloadWithStdin(args[1:], stdout, stderr, getenv, stdin)
 	case "sign":
 		return runSignWithStdin(args[1:], stdout, stderr, getenv, stdin)
+	case "simulate":
+		return runSimulate(args[1:], stdout, stderr, getenv, stdin)
 	case "delegates":
 		return runDelegatesWithStdin(args[1:], stdout, stderr, getenv, stdin)
 	case "inspect":
