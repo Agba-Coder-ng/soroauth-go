@@ -244,18 +244,20 @@ mode, so scripts can safely pipe the output to `jq` without stripping usage
 text. `tui` is the one exception: it is an interactive terminal program, not
 something a script drives, so it has no `--json` mode.
 
-| subcommand      | success fields                                                                                                                   | failure field                                       |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `payload`       | `preimage`, `payload`                                                                                                            | `error`                                             |
-| `sign`          | `signed_entry`                                                                                                                   | `error`                                             |
-| `delegates`     | `wrapped_entry`                                                                                                                  | `error`                                             |
-| `inspect`       | (the `EntryInfo` struct — this was already `inspect`'s only output; `--json` is accepted for consistency and does not change it) | `error`                                             |
-| `verify`        | the report: `credential_type`, `address`, `valid_until_ledger`, `verified`, and `nodes` with a `verdict` per credential node     | `error`                                             |
-| `tree`          | (the `EntryInfo` struct, same shape as `inspect`; without `--json` it prints an ASCII or DOT rendering instead)                  | `error`                                             |
-| `doctor`        | `checks`, `ok`                                                                                                                   | (checks carry their own `pass`/`detail`; see below) |
-| `cross-compile` | `target`, `size`, `sha256` (one per line)                                                                                        | `error`                                             |
-| `completions`   | `shell`, `script`                                                                                                                | `error`                                             |
-| `man`           | `format`, `page`                                                                                                                 | `error`                                             |
+| subcommand      | success fields                                                                                                                              | failure field                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `payload`       | `preimage`, `payload`                                                                                                                       | `error`                                             |
+| `sign`          | `signed_entry`                                                                                                                              | `error`                                             |
+| `simulate`      | `entries` (with `operation_index`, `entry_index`, `arm`, `entry` each), `min_resource_fee`, `transaction_data`, `latest_ledger`, `envelope` | `error`                                             |
+| `submit`        | `hash`, `status`, `ledger`, `arm` (plus `result_xdr` and `diagnostic_events` when the transaction failed)                                   | `error`                                             |
+| `delegates`     | `wrapped_entry`                                                                                                                             | `error`                                             |
+| `inspect`       | (the `EntryInfo` struct — this was already `inspect`'s only output; `--json` is accepted for consistency and does not change it)            | `error`                                             |
+| `verify`        | the report: `credential_type`, `address`, `valid_until_ledger`, `verified`, and `nodes` with a `verdict` per credential node                | `error`                                             |
+| `tree`          | (the `EntryInfo` struct, same shape as `inspect`; without `--json` it prints an ASCII or DOT rendering instead)                             | `error`                                             |
+| `doctor`        | `checks`, `ok`                                                                                                                              | (checks carry their own `pass`/`detail`; see below) |
+| `cross-compile` | `target`, `size`, `sha256` (one per line)                                                                                                   | `error`                                             |
+| `completions`   | `shell`, `script`                                                                                                                           | `error`                                             |
+| `man`           | `format`, `page`                                                                                                                            | `error`                                             |
 
 ### Worked invocation — JSON output
 
@@ -285,6 +287,55 @@ SEED=SABC... ./soroauth sign \
 ./soroauth inspect --entry <base64> |
   jq -r '"\(.credential_type) \(.address) expires=\(.valid_until_ledger)"'
 ```
+
+### Simulate and submit — from a simulated transaction to a landed one
+
+`payload`, `sign`, `inspect` and the rest work on an entry somebody already has.
+`simulate` and `submit` are the two ends that produce one and send it.
+
+`simulate` runs the record pass: it takes a transaction envelope, asks the host
+which addresses must authorize the call, and prints every entry the host
+recorded with its operation index, entry index and credential arm. The arm is
+reported as the host recorded it, not as the caller asked for it, because
+`--use-upgraded-auth` is best-effort. It also prints — and carries in its JSON
+as `envelope` — the input envelope with the recorded entries attached, which is
+the thing the next step needs: signing a bare entry produces a bare entry, and
+getting it back into a transaction by hand is the part of the two-pass flow
+people get wrong.
+
+`submit` takes that envelope back, runs the enforcing pass so the resource fee
+covers the signatures, signs the envelope with the seed named by `--secret-env`
+(never a flag value), sends it, and polls to a terminal state. The transaction
+hash is printed the moment the RPC accepts it and before the poll, so a poll
+that times out still leaves something to look up.
+
+```sh
+export SOROAUTH_RPC_URL='https://soroban-testnet.stellar.org'
+
+# 1. Record: which addresses must authorize this call?
+soroauth simulate --entry unsigned-tx.b64 --json | tee recorded.json
+
+# 2. Sign the entries. The authorizer's seed, not the payer's.
+SEED_AUTHORIZER=SABC... soroauth sign \
+  --entry "$(jq -r .envelope recorded.json)" \
+  --valid-until 1234567 --network testnet --secret-env SEED_AUTHORIZER \
+  --for GAAAA... > signed-tx.b64
+
+# 3. Enforce, sign the envelope as the payer, send and poll.
+SEED_PAYER=SABC... soroauth submit \
+  --entry signed-tx.b64 --network testnet --secret-env SEED_PAYER
+```
+
+`submit` refuses to send a transaction whose address entries are unsigned — the
+host would refuse it on-chain and the fee would be spent anyway — naming the
+address that is missing a signature. `--allow-unsigned` overrides that for the
+one case this tool cannot judge: a custom account deciding its own signature
+shape. A delegates entry's Void top-level node is not a refusal, because
+CAP-71-01 permits it when every delegate authenticates.
+
+Neither subcommand signs the entries for you, and neither picks an endpoint:
+`--rpc-url` or `$SOROAUTH_RPC_URL` is required, because a simulation or a
+submission is about to authorize value on a specific chain.
 
 ### Batch mode — many entries in one run
 
